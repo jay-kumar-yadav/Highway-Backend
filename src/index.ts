@@ -13,21 +13,30 @@ import userRoutes from './routes/user';
 import { errorHandler } from './middleware/errorHandler';
 import { initializePassport } from './config/passport';
 
-dotenv.config(); // ✅ Must be first to load env variables
+dotenv.config(); // Load env variables first
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Security middleware
 app.use(helmet());
+
+// CORS middleware (must be before routes)
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:5173',
+  'https://highway-frontend-6n97.vercel.app'
+];
+
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:5173',
-    'https://highway-frontend-6n97.vercel.app'
-  ],
+  origin: allowedOrigins,
   credentials: true
 }));
 
+// Preflight handling for complex requests
+app.options('*', cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -46,7 +55,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production', // HTTPS only in prod
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
@@ -54,7 +63,7 @@ app.use(session({
 // Passport middleware
 app.use(passport.initialize());
 app.use(passport.session());
-initializePassport(passport); // ✅ Pass passport instance
+initializePassport(passport); // Pass passport instance
 
 // Routes
 app.use('/api/auth', authRoutes);
