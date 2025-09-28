@@ -23,26 +23,34 @@ app.use(helmet());
 
 // -------------------- CORS --------------------
 const allowedOrigins = [
+  'http://localhost:5173', // Vite dev server
+  'http://localhost:3000',  // Alternative local dev
   process.env.FRONTEND_URL_LOCAL,
-  process.env.FRONTEND_URL_PROD
-];
+  process.env.FRONTEND_URL_PROD,
+  'https://highway-frontend-6n97.vercel.app' // Your actual Vercel domain
+].filter(Boolean); // Remove any undefined values
 
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'Origin, X-Requested-With, Content-Type, Accept, Authorization'
-  );
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(204); // respond OK to preflight
-  }
-  next();
-});
+// Use cors middleware with proper configuration
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // For development, allow any localhost origin
+    if (process.env.NODE_ENV === 'development' && origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
+}));
 
 // -------------------- Rate Limiting --------------------
 const limiter = rateLimit({
