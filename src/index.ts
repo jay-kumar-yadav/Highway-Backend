@@ -23,9 +23,11 @@ app.use(helmet());
 app.use(cors({
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:5173',
+    'https://highway-frontend-6n97.vercel.app'
   ],
-  credentials: true // ✅ Needed for cookies/session
+  credentials: true
 }));
+
 
 // Rate limiting
 const limiter = rateLimit({
