@@ -24,7 +24,7 @@ app.use(helmet());
 // CORS middleware (must be before routes)
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:5173',
-  'https://highway-frontend-6n97.vercel.app'
+  'https://highway-frontend-6n97.vercel.app/signin'
 ];
 
 app.use(cors({
