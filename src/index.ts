@@ -13,25 +13,24 @@ import userRoutes from './routes/user';
 import { errorHandler } from './middleware/errorHandler';
 import { initializePassport } from './config/passport';
 
-dotenv.config(); // Load env variables first
+dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5004;
+const PORT = process.env.PORT || 5003;
 
-// -------------------- Security Middleware --------------------
+// -------------------- Security --------------------
 app.use(helmet());
 
-// -------------------- CORS Middleware --------------------
+// -------------------- CORS --------------------
 const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:5173',
-  'https://highway-frontend-6n97.vercel.app'
+  process.env.FRONTEND_URL_LOCAL,
+  process.env.FRONTEND_URL_PROD
 ];
 
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (e.g., mobile apps, Postman)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // allow Postman, mobile, etc.
+    if (!allowedOrigins.includes(origin)) {
       return callback(new Error('CORS policy: Origin not allowed'), false);
     }
     return callback(null, true);
@@ -41,9 +40,15 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// Handle preflight
+app.options('*', cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
+
 // -------------------- Rate Limiting --------------------
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 100
 });
 app.use(limiter);
@@ -52,21 +57,21 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// -------------------- Session Middleware --------------------
+// -------------------- Session --------------------
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-session-secret',
+  secret: process.env.SESSION_SECRET!,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000
   }
 }));
 
 // -------------------- Passport --------------------
 app.use(passport.initialize());
 app.use(passport.session());
-initializePassport(passport); // Pass the passport instance
+initializePassport(passport);
 
 // -------------------- Routes --------------------
 app.use('/api/auth', authRoutes);
@@ -80,14 +85,10 @@ app.get('/api/health', (_, res) => {
 
 // -------------------- Error Handling --------------------
 app.use(errorHandler);
+app.use('*', (_, res) => res.status(404).json({ message: 'Route not found' }));
 
-// 404 Handler
-app.use('*', (_, res) => {
-  res.status(404).json({ message: 'Route not found' });
-});
-
-// -------------------- Database Connection --------------------
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/highway-notes')
+// -------------------- DB Connection --------------------
+mongoose.connect(process.env.MONGODB_URI!)
   .then(() => {
     console.log('✅ Connected to MongoDB');
     app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
