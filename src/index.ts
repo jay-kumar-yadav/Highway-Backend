@@ -22,67 +22,35 @@ const PORT = process.env.PORT || 5003;
 app.use(helmet());
 
 // -------------------- CORS --------------------
+// ✅ allow only your dev and prod frontend
 const allowedOrigins = [
-  'http://localhost:5173', // Vite dev server
-  'http://localhost:3000',  // Alternative local dev
-  'https://highway-frontend-ivory.vercel.app', // Your actual Vercel domain
-  process.env.FRONTEND_URL_LOCAL,
-  process.env.FRONTEND_URL_PROD
-].filter(Boolean); // Remove any undefined values
+  'http://localhost:5173',                         // Vite dev
+  'https://highway-frontend-ivory.vercel.app'      // your live Vercel domain
+];
 
-console.log('🌐 Allowed CORS origins:', allowedOrigins);
+console.log('🌐 Allowed origins:', allowedOrigins);
 
-// Use cors middleware with proper configuration
-app.use(cors({
-  origin: (origin, callback) => {
-    console.log('🔍 CORS request from origin:', origin);
-    
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) {
-      console.log('✅ Allowing request with no origin');
-      return callback(null, true);
-    }
-    
-    if (allowedOrigins.includes(origin)) {
-      console.log('✅ Origin allowed:', origin);
-      return callback(null, true);
-    }
-    
-    // For development, allow any localhost origin
-    if (process.env.NODE_ENV === 'development' && origin.includes('localhost')) {
-      console.log('✅ Development localhost origin allowed:', origin);
-      return callback(null, true);
-    }
-    
-    console.log('❌ Origin not allowed:', origin);
-    return callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
-}));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // allow curl / Postman with no origin
+      if (!origin) return callback(null, true);
 
-// Fallback CORS middleware (in case cors package doesn't work)
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  
-  // Always set CORS headers for your Vercel domain
-  if (origin === 'https://highway-frontend-6n97.vercel.app') {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
-  
-  // Set other CORS headers
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(204);
-  }
-  
-  next();
-});
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.warn('❌ CORS blocked for origin:', origin);
+      return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
+  })
+);
+
+// Enable OPTIONS for all routes
+app.options('*', cors());
 
 // -------------------- Rate Limiting --------------------
 const limiter = rateLimit({
@@ -96,15 +64,17 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // -------------------- Session --------------------
-app.use(session({
-  secret: process.env.SESSION_SECRET!,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000
-  }
-}));
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'change_this_secret',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production', // true in production
+      maxAge: 24 * 60 * 60 * 1000
+    }
+  })
+);
 
 // -------------------- Passport --------------------
 app.use(passport.initialize());
@@ -121,19 +91,4 @@ app.get('/api/health', (_, res) => {
   res.json({ status: 'OK', message: 'Highway Notes API is running' });
 });
 
-// -------------------- Error Handling --------------------
-app.use(errorHandler);
-app.use('*', (_, res) => res.status(404).json({ message: 'Route not found' }));
-
-// -------------------- DB Connection --------------------
-mongoose.connect(process.env.MONGODB_URI!)
-  .then(() => {
-    console.log('✅ Connected to MongoDB');
-    app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-  })
-  .catch((error) => {
-    console.error('❌ MongoDB connection error:', error);
-    process.exit(1);
-  });
-
-export default app;
+// -------------------
