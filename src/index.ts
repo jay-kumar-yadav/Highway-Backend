@@ -25,32 +25,64 @@ app.use(helmet());
 const allowedOrigins = [
   'http://localhost:5173', // Vite dev server
   'http://localhost:3000',  // Alternative local dev
+  'https://highway-frontend-6n97.vercel.app', // Your actual Vercel domain
   process.env.FRONTEND_URL_LOCAL,
-  process.env.FRONTEND_URL_PROD,
-  'https://highway-frontend-6n97.vercel.app' // Your actual Vercel domain
+  process.env.FRONTEND_URL_PROD
 ].filter(Boolean); // Remove any undefined values
+
+console.log('🌐 Allowed CORS origins:', allowedOrigins);
 
 // Use cors middleware with proper configuration
 app.use(cors({
   origin: (origin, callback) => {
+    console.log('🔍 CORS request from origin:', origin);
+    
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log('✅ Allowing request with no origin');
+      return callback(null, true);
+    }
     
     if (allowedOrigins.includes(origin)) {
+      console.log('✅ Origin allowed:', origin);
       return callback(null, true);
     }
     
     // For development, allow any localhost origin
     if (process.env.NODE_ENV === 'development' && origin.includes('localhost')) {
+      console.log('✅ Development localhost origin allowed:', origin);
       return callback(null, true);
     }
     
+    console.log('❌ Origin not allowed:', origin);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
 }));
+
+// Fallback CORS middleware (in case cors package doesn't work)
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // Always set CORS headers for your Vercel domain
+  if (origin === 'https://highway-frontend-6n97.vercel.app') {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  
+  // Set other CORS headers
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  
+  next();
+});
 
 // -------------------- Rate Limiting --------------------
 const limiter = rateLimit({
