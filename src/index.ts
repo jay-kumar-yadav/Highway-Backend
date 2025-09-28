@@ -25,7 +25,7 @@ app.use(helmet());
 const allowedOrigins = [
   'http://localhost:5173', // Vite dev server
   'http://localhost:3000',  // Alternative local dev
-  'https://highway-frontend-6n97.vercel.app', // Your actual Vercel domain
+  'https://highway-frontend-ivory.vercel.app', // Your actual Vercel domain
   process.env.FRONTEND_URL_LOCAL,
   process.env.FRONTEND_URL_PROD
 ].filter(Boolean); // Remove any undefined values
